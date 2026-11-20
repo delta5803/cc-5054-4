@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BMPP-1 块运动预测实验台</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="title-block">
+        <h1>块运动预测实验台</h1>
+        <p class="subtitle">
+          重建参考帧驱动的 8×8 块搜索 · 真实可解码的 BMPP-1 实验码流 · 非任何标准编码规范
+        </p>
+      </div>
+      <div class="header-badges">
+        <span class="badge" id="badge-format">BMPP-1</span>
+        <span class="badge" id="badge-state">未编码</span>
+      </div>
+    </header>
+
+    <main class="layout">
+      <aside class="panel controls" aria-label="编码参数">
+        <h2>实验参数</h2>
+
+        <label class="field">
+          <span>测试序列</span>
+          <select id="scenario">
+            <option value="pan">平移纹理 Pan</option>
+            <option value="occlusion">遮挡显露 Occlusion</option>
+            <option value="overshoot">超范围运动 Overshoot</option>
+          </select>
+        </label>
+        <p class="hint" id="scenario-hint"></p>
+
+        <div class="field-row">
+          <label class="field">
+            <span>宽度</span>
+            <input id="width" type="number" min="8" max="256" step="8" value="64" />
+          </label>
+          <label class="field">
+            <span>高度</span>
+            <input id="height" type="number" min="8" max="192" step="8" value="48" />
+          </label>
+          <label class="field">
+            <span>帧数</span>
+            <input id="frames" type="number" min="2" max="24" value="6" />
+          </label>
+        </div>
+
+        <label class="field">
+          <span>搜索策略</span>
+          <select id="strategy">
+            <option value="full">全搜索 Full</option>
+            <option value="spiral">同心螺旋 Spiral</option>
+            <option value="diamond">菱形细化 Diamond</option>
+          </select>
+        </label>
+        <p class="hint" id="strategy-hint"></p>
+
+        <div class="field-row">
+          <label class="field">
+            <span>量化 QP</span>
+            <input id="qp" type="number" min="0" max="51" value="24" />
+          </label>
+          <label class="field">
+            <span>搜索半径</span>
+            <input id="radius" type="number" min="0" max="64" value="12" />
+          </label>
+        </div>
+
+        <label class="field checkbox">
+          <input id="rgb" type="checkbox" />
+          <span>使用三分量 (R/G/B) 编码</span>
+        </label>
+
+        <div class="actions">
+          <button id="run" class="primary" type="button">编码并重建</button>
+          <button id="download" type="button" disabled>下载 .bmpp</button>
+        </div>
+
+        <div class="legend">
+          <h3>图例</h3>
+          <ul>
+            <li><span class="swatch swatch-source"></span>当前源帧</li>
+            <li><span class="swatch swatch-pred"></span>预测块（参考重建）</li>
+            <li><span class="swatch swatch-resid"></span>预测残差</li>
+            <li><span class="swatch swatch-recon"></span>解码重建</li>
+          </ul>
+        </div>
+
+        <div class="docs-note">
+          <h3>图形入口</h3>
+          <p>
+            本页即块预测实验界面。命令行仅作辅助：
+            <code>node scripts/cli.mjs encode|decode|bench</code>。
+            格式说明见 <code>docs/FORMAT.md</code>，解码器见
+            <code>src/core/decode.js</code>。
+          </p>
+        </div>
+      </aside>
+
+      <section class="workspace">
+        <div class="alerts" id="alerts" role="status" aria-live="polite"></div>
+
+        <div class="timeline panel">
+          <div class="timeline-head">
+            <h2>逐帧浏览</h2>
+            <div class="timeline-actions">
+              <button id="prev" type="button" disabled>上一帧</button>
+              <span id="frame-label">—</span>
+              <button id="next" type="button" disabled>下一帧</button>
+            </div>
+          </div>
+          <input id="frame-slider" type="range" min="0" max="0" value="0" disabled />
+          <div class="frame-strip" id="frame-strip"></div>
+        </div>
+
+        <div class="viewers">
+          <figure class="viewer panel">
+            <figcaption>
+              <span>当前源帧</span>
+              <span class="cap-note" id="source-meta"></span>
+            </figcaption>
+            <canvas id="canvas-source" width="256" height="192"></canvas>
+          </figure>
+          <figure class="viewer panel">
+            <figcaption>
+              <span>解码重建</span>
+              <span class="cap-note" id="recon-meta"></span>
+            </figcaption>
+            <canvas id="canvas-recon" width="256" height="192"></canvas>
+          </figure>
+        </div>
+
+        <div class="viewers">
+          <figure class="viewer panel">
+            <figcaption>
+              <span>预测块（参考重建）</span>
+              <span class="cap-note" id="pred-meta"></span>
+            </figcaption>
+            <canvas id="canvas-pred" width="256" height="192"></canvas>
+          </figure>
+          <figure class="viewer panel">
+            <figcaption>
+              <span>预测残差</span>
+              <span class="cap-note" id="resid-meta"></span>
+            </figcaption>
+            <canvas id="canvas-resid" width="256" height="192"></canvas>
+          </figure>
+        </div>
+
+        <div class="panel block-inspector">
+          <div class="inspector-head">
+            <h2>块检查器</h2>
+            <div class="inspector-nav">
+              <button id="prev-block" type="button" disabled>上一个块</button>
+              <span id="block-label">—</span>
+              <button id="next-block" type="button" disabled>下一个块</button>
+            </div>
+          </div>
+          <p class="hint">
+            在任一画面上点击可选中 8×8 块；下方显示该块的搜索候选与最终残差。
+          </p>
+
+          <div class="block-grid">
+            <figure class="mini">
+              <figcaption>源块</figcaption>
+              <canvas id="mini-source" width="128" height="128"></canvas>
+            </figure>
+            <figure class="mini">
+              <figcaption>预测块</figcaption>
+              <canvas id="mini-pred" width="128" height="128"></canvas>
+            </figure>
+            <figure class="mini">
+              <figcaption>残差</figcaption>
+              <canvas id="mini-resid" width="128" height="128"></canvas>
+            </figure>
+            <figure class="mini">
+              <figcaption>重建块</figcaption>
+              <canvas id="mini-recon" width="128" height="128"></canvas>
+            </figure>
+          </div>
+
+          <div class="block-facts" id="block-facts"></div>
+
+          <div class="candidates-wrap">
+            <h3>被搜索候选 (SAD 与率失真代价)</h3>
+            <div class="candidates-head">
+              <span id="candidate-summary">—</span>
+            </div>
+            <canvas id="canvas-candidates" width="360" height="360"></canvas>
+            <div class="candidates-table-wrap">
+              <table class="candidates-table">
+                <thead>
+                  <tr>
+                    <th>MV (x, y)</th>
+                    <th>SAD</th>
+                    <th>向量比特</th>
+                    <th>RD 代价</th>
+                    <th>选中</th>
+                  </tr>
+                </thead>
+                <tbody id="candidates-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel strategy-compare">
+          <div class="compare-head">
+            <h2>搜索策略对比</h2>
+            <button id="compare" type="button" disabled>对比全部策略</button>
+          </div>
+          <p class="hint">
+            同一序列、同一 QP 与半径下，比较计算量（块匹配次数）与率失真代价；
+            所有数字来自真实码流与真实重建，不是估计。
+          </p>
+          <div id="compare-output" class="compare-output"></div>
+        </div>
+
+        <div class="panel stream-panel">
+          <div class="stream-head">
+            <h2>码流与完整性</h2>
+            <span class="cap-note">解码器在浏览器内独立运行，仅接收字节</span>
+          </div>
+          <div id="stream-facts" class="stream-facts"></div>
+          <details open>
+            <summary>逐帧汇总（整段序列，而非单个块）</summary>
+            <div id="frame-summary" class="frame-summary"></div>
+          </details>
+          <details>
+            <summary>头部十六进制转储 (前 32 字节)</summary>
+            <pre id="header-hex"></pre>
+          </details>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <p>
+        BMPP-1 是为本实验定义的格式，并非 MPEG/H.264/AV1 等任何标准的一部分，也不声称兼容它们。
+        所有失真、码率与重建均由真实字节流解码得到。
+      </p>
+    </footer>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
