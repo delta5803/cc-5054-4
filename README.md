@@ -14,8 +14,16 @@
 npm start
 # 打开 http://localhost:4173/src/ui/index.html
 
-# 测试（33 项，覆盖格式、往返、搜索策略、三类场景、负例、独立解析器交叉验证）
+# 测试（65 项，覆盖格式、往返、搜索策略、三类场景、负例、独立解析器交叉验证，
+# 以及 src/lab 的分片暂挂/恢复、双通道故障定位、失败缩减与重演）
 npm test
+
+# 故障注入实验台的无头报告
+npm run lab -- faults   # 两种相近像素误差、不同机制的故障包
+npm run lab -- tiles    # 首个运动块跨分片：缺参考暂挂与补参考恢复
+npm run lab -- reduce   # 保留故障机制的样例缩减
+npm run lab -- replay   # 从失败包字段逐步重演误差传播
+npm run lab -- alias    # 等价向量：合法另选 vs 巧合通过后漂移
 ```
 
 不需要 `npm install`：没有运行时依赖，Node 只用内置模块，浏览器直接加载 ES 模块。
@@ -93,11 +101,23 @@ src/core/
   container.js    文件头、CRC32
   scenarios.js    三类确定性测试序列
   bench.js        策略计算量/率失真对比
+src/lab/          独立参考解码与故障注入实验层（见 docs/LAB.md）
+  subpel.js       半像素双线性插值（正确单次舍入 vs 提前舍入故障）
+  refstore.js     带显式身份编号的参考帧仓库
+  tile.js         BMPT 分片码流、暂挂/恢复解码
+  assembler.js    分片装配器：缺参考回报与补参考恢复
+  fixture.js      双参考遮挡、跨分片、等价向量三类确定性夹具
+  faults.js       错误参考/提前舍入故障与失败包
+  diagnose.js     按向量、参考编号、残差、像素通道分别定位首个失配块
+  reducer.js      保留故障机制的失败样例缩减器
+  replay.js       失败包逐步重演与等价向量合法性判定
 src/ui/           实验界面（HTML/CSS/JS，无框架）
 scripts/cli.mjs   命令行辅助
+scripts/lab.mjs   故障注入实验台的无头报告
 scripts/serve.mjs 静态服务器
-test/             Node 内置 test runner
+test/             Node 内置 test runner（test/lab 为实验层测试）
 docs/FORMAT.md    逐位格式规范
+docs/LAB.md       实验层（分片、故障、缩减、重演）规范
 docs/UI.md        界面说明
 ```
 

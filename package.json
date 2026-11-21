@@ -5,10 +5,11 @@
   "type": "module",
   "description": "Block motion prediction research lab with a real, decodable experimental bitstream (BMPP-1)",
   "scripts": {
-    "test": "node --test test/*.test.js",
+    "test": "node --test test/*.test.js test/lab/*.test.js",
     "start": "node scripts/serve.mjs",
     "encode": "node scripts/cli.mjs encode",
     "decode": "node scripts/cli.mjs decode",
-    "bench": "node scripts/cli.mjs bench"
+    "bench": "node scripts/cli.mjs bench",
+    "lab": "node scripts/lab.mjs"
   }
 }
